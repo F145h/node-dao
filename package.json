@@ -1,0 +1,10 @@
+{
+  "name": "node-dao",
+  "version": "0.4.1",
+  "description": "node.js mongo-like data access object interface",
+  "license": "MIT",
+  "author": {
+    "name": "Igor F145h Savchenko",
+    "url": "http://f145h.com/"
+  }
+}
