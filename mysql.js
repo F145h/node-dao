@@ -143,26 +143,53 @@ mysql_connection.prototype.update = function(fields, condition, callback) {
 
 mysql_connection.prototype.find = function(conditions) {
 
-    var queryValues = [this.table];
-    var queryStr = "SELECT * FROM ?? ";
-
-    let r = mysqlStringFromConditions(conditions);
-    queryValues = queryValues.concat(r.v)
-
     let thisConnection = this;
 
+    var queryValues = [this.table];
+
     var cur = new sql_cursor();
+    cur.count = function (callback) {
+        return new Promise((resolve, reject) => {
+            var queryStr = "SELECT count(*) FROM ?? ";
+
+            let r = mysqlStringFromConditions(conditions);
+            queryValues = queryValues.concat(r.v);
+
+            thisConnection.connection.query(queryStr + r.s + ";", queryValues, function (err, rows, fields) {
+                if (err)
+                    reject(err);
+                else {
+                    var c = 0;
+                    if (Array.isArray(rows) && rows.length !== 0) {
+                        let countResult = rows[0];
+                        for (var k in countResult) {
+                            c = countResult[k];
+                            break;
+                        }
+                    }
+                    resolve(c);
+                }
+            });
+        });
+    };
+
     cur.toArray = function (callback) {
         return new Promise((resolve, reject) => {
+
+            var queryStr = "SELECT * FROM ?? ";
+
+            let r = mysqlStringFromConditions(conditions);
+            queryValues = queryValues.concat(r.v);
+
             var orderStr = new String();
             var limitStr = new String();
 
             var isFirstOrder = true;
-            for (let sk in this.sort) {
+            for (let sk in this.sortValue) {
                 if (isFirstOrder)
                     orderStr += "ORDER BY ";
 
-                let sv = this.sort[sk];
+                let sv = this.sortValue[sk];
                 if (sv > 0) {
                     if (!isFirstOrder) orderStr += ", ";
                     orderStr += "?? ASC ";
@@ -177,12 +204,12 @@ mysql_connection.prototype.find = function(conditions) {
                 isFirstOrder = false;
             }
 
-            if (this.count !== null)
-                limitStr += "LIMIT " + this.count + " ";
-            if (this.offset !== null)
-                limitStr += "OFFSET " + this.offset + " ";
+            if (this.limitValue !== null)
+                limitStr += "LIMIT " + this.limitValue + " ";
+            if (this.skipValue !== null)
+                limitStr += "OFFSET " + this.skipValue + " ";
 
-            thisConnection.connection.query(queryStr + r.s + orderStr + limitStr + ";", queryValues.concat(r.v), function (err, rows, fields) {
+            thisConnection.connection.query(queryStr + r.s + orderStr + limitStr + ";", queryValues, function (err, rows, fields) {
                 if (err)
                     reject(err);
                 else
@@ -254,7 +281,7 @@ mysql_connection.prototype.insert = function (rows, callback) {
     });
 };
 
-mysql_connection.prototype.createTable - function(name, columns){
+mysql_connection.prototype.createTable - function(columns){
     return new Promise((resolve, reject) => {
         var queryValues = [this.table];
         var queryStr = "CREATE TABLE ?? (";

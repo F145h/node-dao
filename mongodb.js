@@ -82,9 +82,9 @@ mongodb_connection.prototype.insertMany = function (fields) {
     });
 };
 
-mongodb_connection.prototype.createTable - function(name){
+mongodb_connection.prototype.createTable - function(){
     return new Promise((resolve, reject) => {
-        this.connection.createCollection(name, function(err, result) {
+        this.connection.createCollection(this.table, function(err, result) {
             if (err) return reject(err);
             resolve(result);
         });

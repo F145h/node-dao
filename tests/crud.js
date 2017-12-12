@@ -8,7 +8,7 @@ let sqlite = require("sql.js");
 
 
 async function check(n, c) {
-console.log("test for database", n);
+    console.log("test", n, "database");
     await c.delete({});
 
     let animals = {};
@@ -38,8 +38,13 @@ console.log("test for database", n);
     await c.delete({ name: { $eq: "cow" } });
     let f1 = await c.find({ name: { $eq: "cow" } }).toArray();
     let f2 = await c.findOne({ name: { $eq: "cow" } });
-    console.log(f1, f2);
-    
+    console.log(n, "find & findOne removed row", f1, f2);
+
+    console.log(n, "count:", await c.find({}).count());
+
+    console.log(n, "ravens count({name:{$eq: 'raven'}}) :", await c.find({ name: { $eq: "raven" } }).count());
+    console.log(n, "find raven object:", await c.find({ name: { $eq: "raven" } }).toArray());
+
 return;
 
     console.log(n, result);
@@ -122,10 +127,10 @@ async function testConnnections()
    let tableName = "animals";
 
    var c = {};
-   c["sqlite"] = await getSqliteConnection(tableName);
+   c["mongodb"] = await getMongoDbConnection(tableName);
    c["mysql"] = await getMysqlConnection(tableName);
    c["postgresql"] = await getPostgreSqlConnection(tableName);
-   c["mongodb"] = await getMongoDbConnection(tableName);
+   c["sqlite"] = await getSqliteConnection(tableName); 
 
    for(let n in c)
    {

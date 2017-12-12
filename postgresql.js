@@ -151,23 +151,48 @@ postgresql_connection.prototype.delete = function (conditions, callback) {
 
 postgresql_connection.prototype.find = function (conditions) {
 
-    var sqlCmd = "SELECT * FROM " + this.table + " ";
-    let cr = postgresqlStringFromConditions(conditions, 0);
-console.log(conditions, cr);
+    let table = this.table;
     let thisConnection = this;
 
     var cur = new sql_cursor();
+    cur.count = function (callback) {
+        return new Promise((resolve, reject) => {
+            var queryStr = "SELECT count(*) FROM " + table + " ";
+            let cr = postgresqlStringFromConditions(conditions, 0);
+
+            thisConnection.connection.query(queryStr + cr.s + ";", cr.v, function (err, rows, fields) {
+                if (err)
+                    reject(err);
+                else {
+                    var c = 0;
+                    if ( rows.rows.length !== 0) {
+                        let countResult = rows.rows[0];
+                        for (var k in countResult) {
+                            c = parseInt(countResult[k]);
+                            break;
+                        }
+                    }
+                    resolve(c);
+                }
+            });
+        });
+    };
+
     cur.toArray = function (callback) {
         return new Promise((resolve, reject) => {
+
+            var sqlCmd = "SELECT * FROM " + table + " ";
+            let cr = postgresqlStringFromConditions(conditions, 0);
+
             var orderStr = new String();
             var limitStr = new String();
 
             var isFirstOrder = true;
-            for (let sk in this.sort) {
+            for (let sk in this.sortValue) {
                 if (isFirstOrder)
                     orderStr += "ORDER BY ";
 
-                let sv = this.sort[sk];
+                let sv = this.sortValue[sk];
                 if (sv > 0) {
                     if (!isFirstOrder) orderStr += ", ";
                     orderStr += sk + " ASC ";
@@ -180,10 +205,10 @@ console.log(conditions, cr);
                 isFirstOrder = false;
             }
 
-            if (this.count !== null)
-                limitStr += "LIMIT " + this.count + " ";
-            if (this.offset !== null)
-                limitStr += "OFFSET " + this.offset + " ";
+            if (this.limitValue !== null)
+                limitStr += "LIMIT " + this.limitValue + " ";
+            if (this.skipValue !== null)
+                limitStr += "OFFSET " + this.skipValue + " ";
 
             thisConnection.connection.query(sqlCmd + cr.s + orderStr + limitStr + ";", cr.v, function (err, results) {
                 if (err) return reject(err);
@@ -236,7 +261,7 @@ postgresql_connection.prototype.insert = function (fields, callback) {
     });
 };
 
-postgresql_connection.prototype.createTable - function(name, columns){
+postgresql_connection.prototype.createTable - function(columns){
     return new Promise((resolve, reject) => {
         var queryValues = [this.table];
         var queryStr = "CREATE TABLE ?? (";
