@@ -119,7 +119,7 @@ function postgresqlStringFromUpdateFields(fields, valueNumber) {
     return { v: queryValues, s: queryStr };
 }
 
-postgresql_connection.prototype.update = function (fields, conditions, callback) {
+postgresql_connection.prototype.update = function (conditions, fields, callback) {
     return new Promise((resolve, reject) => {
         var sqlCmd = 'UPDATE ' + this.table + ' ';
         var valueNumber = 0;
@@ -233,7 +233,7 @@ postgresql_connection.prototype.findOne = function (conditions, callback) {
 
         this.connection.query(sqlCmd + cr.s + "LIMIT 1;", cr.v, function (err, results) {
             if (err) return reject(err);
-            resolve(results.rows.length > 1 ? result.rows[0] : null);
+            resolve(results.rows.length !== 0 ? results.rows[0] : null);
         });
     });
 };

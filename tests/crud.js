@@ -45,21 +45,9 @@ async function check(n, c) {
     console.log(n, "ravens count({name:{$eq: 'raven'}}) :", await c.find({ name: { $eq: "raven" } }).count());
     console.log(n, "find raven object:", await c.find({ name: { $eq: "raven" } }).toArray());
 
-return;
-
-    console.log(n, result);
-    console.log(n, 'update({ $set : { name: "horse1" } }, { name: { $eq: "horse" } }');
-    await c.update({ $set: { name: "horse1" } }, { name: { $eq: "horse" } });
-
-    console.log(n, 'delete({name: {$eq: "cow"}}');
-    await c.delete({ name: { $eq: "cow" } });
-
-    console.log(n, 'find({}).sort({ name: 1 }');
-    result = await c.find({}).sort({ name: 1 }).toArray();
-
-    console.log(n, result);
-    console.log('');
-    await c.delete({})
+    await c.update({ name: { $eq: "raven"}}, { $set: { name: "falcon" }});
+    console.log(n, "find raven object:", await c.findOne({ name: { $eq: "raven" } }));
+    console.log(n, "find falcon object:", await c.findOne({ name: { $eq: "falcon" } }));
 }
 
 function getMongoDbConnection(){

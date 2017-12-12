@@ -5,18 +5,18 @@ function mongodb_connection(c, t) {
     this.table = t;
 };
 
-mongodb_connection.prototype.update = function (fields, condition) {
+mongodb_connection.prototype.update = function (conditions, fields) {
     return new Promise((resolve, reject) => {
-        this.connection.collection(this.table).updateMany(condition, fields, function(err, result) {
+        this.connection.collection(this.table).updateMany(conditions, fields, function(err, result) {
             if (err) return reject(err);
             resolve(result);
         });
     });
 };
 
-mongodb_connection.prototype.updateOne = function (fields, condition) {
+mongodb_connection.prototype.updateOne = function (conditions, fields) {
     return new Promise((resolve, reject) => {
-        this.connection.collection(this.table).updateOne(condition, fields, function(err, result) {
+        this.connection.collection(this.table).updateOne(conditions, fields, function(err, result) {
             if (err) return reject(err);
             resolve(result);
         });

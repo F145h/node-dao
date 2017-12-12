@@ -126,13 +126,13 @@ function mysqlStringFromUpdateFields(fields) {
     return { v: queryValues, s: queryStr };
 }
 
-mysql_connection.prototype.update = function(fields, condition, callback) {
+mysql_connection.prototype.update = function (conditions, fields, callback) {
 
     return new Promise((resolve, reject) => {
         var sqlCmd = "UPDATE ?? ";
 
         let ur = mysqlStringFromUpdateFields(fields);
-        let cr = mysqlStringFromConditions(condition);
+        let cr = mysqlStringFromConditions(conditions);
 
         this.connection.query(sqlCmd + ur.s + cr.s + ";", [this.table].concat(ur.v).concat(cr.v), function (err) {
             if (err) return reject(err);
@@ -236,7 +236,7 @@ mysql_connection.prototype.findOne = function (conditions, callback) {
 
         this.connection.query(queryStr + r.s + "LIMIT 1;", queryValues.concat(r.v), function (err, rows, fields) {
             if (err) return reject(err);
-            resolve(rows.length > 0 ? rows[0] : null);
+            resolve(rows.length !== 0 ? rows[0] : null);
         });
     });
 };

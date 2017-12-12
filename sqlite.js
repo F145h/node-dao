@@ -166,7 +166,7 @@ function sqliteStringFromUpdateFields(fields) {
     return { v: queryValues, s: queryStr };
 }
 
-sqlite_connection.prototype.update = function (fields, conditions, callback) {
+sqlite_connection.prototype.update = function (conditions, fields, callback) {
     return new Promise((resolve, reject) => {
         var sqlCmd = 'UPDATE ' + this.table + ' ';
 
@@ -266,7 +266,7 @@ sqlite_connection.prototype.findOne = function (conditions, callback) {
 
         var stmt = this.connection.prepare(sqlCmd + cr.s + " LIMIT 1;");
         var r = stmt.getAsObject(cr.v);
-        resolve(Object.keys(r).length > 0 ? r : null);
+        resolve(Object.keys(r).length !== 0 ? r : null);
     });
 };
 
