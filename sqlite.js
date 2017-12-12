@@ -202,7 +202,13 @@ sqlite_connection.prototype.find = function (conditions) {
 
             let cr = sqliteSelectStringFromConditions(conditions);
 
-            var stmt = thisConnection.connection.prepare(sqlCmd + cr.s + ";");
+            var limitStr = new String();
+            if (this.limitValue !== null)
+                limitStr += "LIMIT " + this.limitValue + " ";
+            if (this.skipValue !== null)
+                limitStr += "OFFSET " + this.skipValue + " ";
+
+            var stmt = thisConnection.connection.prepare(sqlCmd + cr.s + limitStr + ";");
             var r = [];
             stmt.bind(cr.a);
             while (stmt.step()) r.push(stmt.get());

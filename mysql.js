@@ -155,7 +155,13 @@ mysql_connection.prototype.find = function(conditions) {
             let r = mysqlStringFromConditions(conditions);
             queryValues = queryValues.concat(r.v);
 
-            thisConnection.connection.query(queryStr + r.s + ";", queryValues, function (err, rows, fields) {
+            var limitStr = new String();
+            if (this.limitValue !== null)
+                limitStr += "LIMIT " + this.limitValue + " ";
+            if (this.skipValue !== null)
+                limitStr += "OFFSET " + this.skipValue + " ";
+
+            thisConnection.connection.query(queryStr + r.s + limitStr +";", queryValues, function (err, rows, fields) {
                 if (err)
                     reject(err);
                 else {

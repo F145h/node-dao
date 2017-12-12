@@ -160,7 +160,13 @@ postgresql_connection.prototype.find = function (conditions) {
             var queryStr = "SELECT count(*) FROM " + table + " ";
             let cr = postgresqlStringFromConditions(conditions, 0);
 
-            thisConnection.connection.query(queryStr + cr.s + ";", cr.v, function (err, rows, fields) {
+            var limitStr = new String();
+            if (this.limitValue !== null)
+                limitStr += "LIMIT " + this.limitValue + " ";
+            if (this.skipValue !== null)
+                limitStr += "OFFSET " + this.skipValue + " ";
+
+            thisConnection.connection.query(queryStr + cr.s + limitStr + ";", cr.v, function (err, rows, fields) {
                 if (err)
                     reject(err);
                 else {
