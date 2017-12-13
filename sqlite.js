@@ -167,24 +167,38 @@ function sqliteStringFromUpdateFields(fields) {
 }
 
 sqlite_connection.prototype.update = function (conditions, fields, callback) {
-    return new Promise((resolve, reject) => {
-        var sqlCmd = 'UPDATE ' + this.table + ' ';
 
-        let ur = sqliteStringFromUpdateFields(fields);
-        let cr = sqliteStringFromConditions(conditions);
+    let ur = sqliteStringFromUpdateFields(fields);
+    let cr = sqliteStringFromConditions(conditions);
 
-        var r = this.connection.run(sqlCmd + ur.s + cr.s + ";", ur.v.concat(cr.v));
-        resolve(r);
-    });
+    let sqlCmd = 'UPDATE ' + this.table + ' ' + ur.s + cr.s + ";"
+
+    if (callback !== undefined) {
+        var r = this.connection.run(sqlCmd, ur.v.concat(cr.v));
+        callback(null);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            var r = this.connection.run(sqlCmd, ur.v.concat(cr.v));
+            resolve(r);
+        });
+    }
 };
 
 sqlite_connection.prototype.delete = function (conditions, callback) {
-    return new Promise((resolve, reject) => {
-        var sqlCmd = 'DELETE FROM ' + this.table + ' ';
-        let cr = sqliteStringFromConditions(conditions);
-        var r = this.connection.run(sqlCmd + cr.s + ";", cr.v);
-        resolve(r);
-    });
+    let cr = sqliteStringFromConditions(conditions);
+    let sqlCmd = 'DELETE FROM ' + this.table + ' ' + cr.s + ";"
+
+    if (callback !== undefined) {
+        var r = this.connection.run(sqlCmd, cr.v);
+        callback(null, r);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            var r = this.connection.run(sqlCmd, cr.v);
+            resolve(r);
+        });
+    }
 };
 
 sqlite_connection.prototype.find = function (conditions) {
@@ -197,61 +211,82 @@ sqlite_connection.prototype.find = function (conditions) {
 
     var cur = new sql_cursor();
     cur.count = function (callback) {
-        return new Promise((resolve, reject) => {
-            var sqlCmd = "SELECT COUNT(*) FROM " + table + " ";
+        let cr = sqliteSelectStringFromConditions(conditions);
 
-            let cr = sqliteSelectStringFromConditions(conditions);
+        var limitStr = new String();
+        if (this.limitValue !== null)
+            limitStr += "LIMIT " + this.limitValue + " ";
+        if (this.skipValue !== null)
+            limitStr += "OFFSET " + this.skipValue + " ";
 
-            var limitStr = new String();
-            if (this.limitValue !== null)
-                limitStr += "LIMIT " + this.limitValue + " ";
-            if (this.skipValue !== null)
-                limitStr += "OFFSET " + this.skipValue + " ";
+        let sqlCmd = "SELECT COUNT(*) FROM " + table + " " + cr.s + limitStr + ";"
 
-            var stmt = thisConnection.connection.prepare(sqlCmd + cr.s + limitStr + ";");
+        if (callback !== undefined) {
+            var stmt = thisConnection.connection.prepare(sqlCmd);
             var r = [];
             stmt.bind(cr.a);
             while (stmt.step()) r.push(stmt.get());
-            resolve(r.length !== 0 ? r[0][0] : 0);
-        });
+            callback(r.length !== 0 ? r[0][0] : 0);
+        }
+        else {
+            return new Promise((resolve, reject) => {
+                var stmt = thisConnection.connection.prepare(sqlCmd);
+                var r = [];
+                stmt.bind(cr.a);
+                while (stmt.step()) r.push(stmt.get());
+                resolve(r.length !== 0 ? r[0][0] : 0);
+            });
+        }
     };
 
     cur.toArray = function (callback) {
-        return new Promise((resolve, reject) => {
-            var sqlCmd = "SELECT * FROM " + table + " ";
-            let cr = sqliteSelectStringFromConditions(conditions);
+        let cr = sqliteSelectStringFromConditions(conditions);
 
-            var orderStr = new String();
-            var limitStr = new String();
+        var orderStr = new String();
+        var limitStr = new String();
 
-            var isFirstOrder = true;
-            for (let sk in this.sortValue) {
-                if (isFirstOrder)
-                    orderStr += "ORDER BY ";
+        var isFirstOrder = true;
+        for (let sk in this.sortValue) {
+            if (isFirstOrder)
+                orderStr += "ORDER BY ";
 
-                let sv = this.sortValue[sk];
-                if (sv > 0) {
-                    if (!isFirstOrder) orderStr += ", ";
-                    orderStr += sk + " ASC ";
-                }
-                else if (sv < 0) {
-                    if (!isFirstOrder) orderStr += ", ";
-                    orderStr += sk + " DESC ";
-                }
-
-                isFirstOrder = false;
+            let sv = this.sortValue[sk];
+            if (sv > 0) {
+                if (!isFirstOrder) orderStr += ", ";
+                orderStr += sk + " ASC ";
+            }
+            else if (sv < 0) {
+                if (!isFirstOrder) orderStr += ", ";
+                orderStr += sk + " DESC ";
             }
 
-            if (this.limitValue !== null)
-                limitStr += "LIMIT " + this.limitValue + " ";
-            if (this.skipValue !== null)
-                limitStr += "OFFSET " + this.skipValue + " ";
+            isFirstOrder = false;
+        }
+
+        if (this.limitValue !== null)
+            limitStr += "LIMIT " + this.limitValue + " ";
+        if (this.skipValue !== null)
+            limitStr += "OFFSET " + this.skipValue + " ";
+
+        let sqlCmd = "SELECT * FROM " + table + " ";
+
+        if (callback !== undefined) {
             var stmt = thisConnection.connection.prepare(sqlCmd + cr.s + orderStr + limitStr + ";");
             var r = [];
             stmt.bind(cr.a);
             while (stmt.step()) r.push(stmt.get());
-            resolve(r);
-        });
+            callback(null, r);
+        }
+        else {
+            return new Promise((resolve, reject) => {
+
+                var stmt = thisConnection.connection.prepare(sqlCmd + cr.s + orderStr + limitStr + ";");
+                var r = [];
+                stmt.bind(cr.a);
+                while (stmt.step()) r.push(stmt.get());
+                resolve(r);
+            });
+        }
     };
 
     return cur;
@@ -260,70 +295,103 @@ sqlite_connection.prototype.find = function (conditions) {
 };
 
 sqlite_connection.prototype.findOne = function (conditions, callback) {
-    return new Promise((resolve, reject) => {
-        var sqlCmd = "SELECT * FROM " + this.table + " ";
-        let cr = sqliteSelectStringFromConditions(conditions);
+    
+    let cr = sqliteSelectStringFromConditions(conditions);
+    let sqlCmd = "SELECT * FROM " + this.table + " " + cr.s + " LIMIT 1;";
 
-        var stmt = this.connection.prepare(sqlCmd + cr.s + " LIMIT 1;");
+    if (callback !== undefined) {
+        var stmt = this.connection.prepare(sqlCmd);
         var r = stmt.getAsObject(cr.v);
-        resolve(Object.keys(r).length !== 0 ? r : null);
-    });
+        callback(null, Object.keys(r).length !== 0 ? r : null);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            var stmt = this.connection.prepare(sqlCmd);
+            var r = stmt.getAsObject(cr.v);
+            resolve(Object.keys(r).length !== 0 ? r : null);
+        });
+    }
 };
 
 sqlite_connection.prototype.insert = function (fields, callback) {
-    return new Promise((resolve, reject) => {
-        var fieldValues = [];
-        var sqlCmd = 'INSERT INTO ' + this.table + ' ';
-        if (fields !== null) {
-            var fieldsProcessed = 0;
-            sqlCmd += "(";
-            for (var f in fields) {
-                ++fieldsProcessed;
-                sqlCmd += f;
-                sqlCmd += Object.keys(fields).length !== fieldsProcessed ? ", " : " ";
-                fieldValues[":" + f] = fields[f];
-            }
-            sqlCmd += ") VALUES (";
 
-            for (var f in fields) {
-                sqlCmd += "?";
-                fieldValues.push(fields[f]);
-                sqlCmd += fieldValues.length !== fieldsProcessed ? ", " : " ";
-            }
-            sqlCmd += ")";
+    var fieldValues = [];
+    var sqlCmd = 'INSERT INTO ' + this.table + ' ';
+    if (fields !== null) {
+        var fieldsProcessed = 0;
+        sqlCmd += "(";
+        for (var f in fields) {
+            ++fieldsProcessed;
+            sqlCmd += f;
+            sqlCmd += Object.keys(fields).length !== fieldsProcessed ? ", " : " ";
+            fieldValues[":" + f] = fields[f];
         }
+        sqlCmd += ") VALUES (";
+
+        for (var f in fields) {
+            sqlCmd += "?";
+            fieldValues.push(fields[f]);
+            sqlCmd += fieldValues.length !== fieldsProcessed ? ", " : " ";
+        }
+        sqlCmd += ")";
+    }
+
+    if (callback !== undefined) {
         this.connection.run(sqlCmd, fieldValues);
         var r = this.connection.exec("select last_insert_rowid();");
-        resolve(r.length !== 0 ? r[0].values[0][0] : -1);
-    });
+        callback(null, r.length !== 0 ? r[0].values[0][0] : -1);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.run(sqlCmd, fieldValues);
+            var r = this.connection.exec("select last_insert_rowid();");
+            resolve(r.length !== 0 ? r[0].values[0][0] : -1);
+        });
+    }
+
 };
 
-sqlite_connection.prototype.createTable - function(columns){
-    return new Promise((resolve, reject) => {
-        var queryValues = [this.table];
-        var queryStr = "CREATE TABLE ?? (";
-        var firstColumn = true;
-        for (let k in columns) {
-            if (!firstColumn) {
-                queryStr += ", ";
-            }
-            queryStr += k + " " + columns[k];
-            firstColumn = false;
+sqlite_connection.prototype.createTable - function (columns, callback) {
+
+    var queryValues = [];
+    var queryStr = "CREATE TABLE " + this.table + " (";
+    var firstColumn = true;
+    for (let k in columns) {
+        if (!firstColumn) {
+            queryStr += ", ";
         }
-        queryStr += ")'"
+        queryStr += k + " " + columns[k];
+        firstColumn = false;
+    }
+    queryStr += ");"
 
-        this.connection.run(queryStr + ";", queryValues);
-        resolve(r);
-    });
+    if (callback !== undefined) {
+        this.connection.run(queryStr, queryValues);
+        callback(null);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.run(queryStr, queryValues);
+            resolve(r);
+        });
+    }
+
 };
 
-sqlite_connection.prototype.dropTable - function(name){
-    return new Promise((resolve, reject) => {
-        var queryValues = [this.table];
-        var queryStr = "DROP TABLE ?? ";
-        this.connection.run(queryStr + ";", queryValues);
-        resolve(r);
-    });
+sqlite_connection.prototype.dropTable - function (name, callback) {
+    var queryValues = [];
+    let queryStr = "DROP TABLE " + this.table + " ;";
+    if (callback !== undefined) {
+        this.connection.run(queryStr, queryValues);
+        callback(null);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.run(queryStr, queryValues);
+            resolve();
+        });
+
+    }
 };
 
 module.exports = sqlite_connection;

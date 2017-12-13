@@ -128,17 +128,22 @@ function mysqlStringFromUpdateFields(fields) {
 
 mysql_connection.prototype.update = function (conditions, fields, callback) {
 
-    return new Promise((resolve, reject) => {
-        var sqlCmd = "UPDATE ?? ";
+    let ur = mysqlStringFromUpdateFields(fields);
+    let cr = mysqlStringFromConditions(conditions);
 
-        let ur = mysqlStringFromUpdateFields(fields);
-        let cr = mysqlStringFromConditions(conditions);
+    var sqlCmd = "UPDATE ?? " + ur.s + cr.s + ";";
 
-        this.connection.query(sqlCmd + ur.s + cr.s + ";", [this.table].concat(ur.v).concat(cr.v), function (err) {
-            if (err) return reject(err);
-            resolve();
+    if (callback !== undefined) {
+        this.connection.query(sqlCmd, [this.table].concat(ur.v).concat(cr.v), callback);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.query(sqlCmd, [this.table].concat(ur.v).concat(cr.v), function (err) {
+                if (err) return reject(err);
+                resolve();
+            });
         });
-    });
+    }
 };
 
 mysql_connection.prototype.find = function(conditions) {
@@ -149,21 +154,22 @@ mysql_connection.prototype.find = function(conditions) {
 
     var cur = new sql_cursor();
     cur.count = function (callback) {
-        return new Promise((resolve, reject) => {
-            var queryStr = "SELECT count(*) FROM ?? ";
 
-            let r = mysqlStringFromConditions(conditions);
-            queryValues = queryValues.concat(r.v);
+        let r = mysqlStringFromConditions(conditions);
+        queryValues = queryValues.concat(r.v);
 
-            var limitStr = new String();
-            if (this.limitValue !== null)
-                limitStr += "LIMIT " + this.limitValue + " ";
-            if (this.skipValue !== null)
-                limitStr += "OFFSET " + this.skipValue + " ";
+        var limitStr = new String();
+        if (this.limitValue !== null)
+            limitStr += "LIMIT " + this.limitValue + " ";
+        if (this.skipValue !== null)
+            limitStr += "OFFSET " + this.skipValue + " ";
 
-            thisConnection.connection.query(queryStr + r.s + limitStr +";", queryValues, function (err, rows, fields) {
+        let queryStr = "SELECT count(*) FROM ?? " + r.s + limitStr + ";";
+
+        if (callback !== undefined) {
+            thisConnection.connection.query(queryStr, queryValues, function (err, rows, fields) {
                 if (err)
-                    reject(err);
+                    callback(err);
                 else {
                     var c = 0;
                     if (Array.isArray(rows) && rows.length !== 0) {
@@ -173,55 +179,79 @@ mysql_connection.prototype.find = function(conditions) {
                             break;
                         }
                     }
-                    resolve(c);
+                    callback(null, c);
                 }
             });
-        });
+        }
+        else {
+            return new Promise((resolve, reject) => {
+                thisConnection.connection.query(queryStr, queryValues, function (err, rows, fields) {
+                    if (err)
+                        reject(err);
+                    else {
+                        var c = 0;
+                        if (Array.isArray(rows) && rows.length !== 0) {
+                            let countResult = rows[0];
+                            for (var k in countResult) {
+                                c = countResult[k];
+                                break;
+                            }
+                        }
+                        resolve(c);
+                    }
+                });
+            });
+        }
     };
 
     cur.toArray = function (callback) {
-        return new Promise((resolve, reject) => {
 
-            var queryStr = "SELECT * FROM ?? ";
+        let r = mysqlStringFromConditions(conditions);
+        queryValues = queryValues.concat(r.v);
 
-            let r = mysqlStringFromConditions(conditions);
-            queryValues = queryValues.concat(r.v);
+        var orderStr = new String();
+        var limitStr = new String();
 
-            var orderStr = new String();
-            var limitStr = new String();
+        var isFirstOrder = true;
+        for (let sk in this.sortValue) {
+            if (isFirstOrder)
+                orderStr += "ORDER BY ";
 
-            var isFirstOrder = true;
-            for (let sk in this.sortValue) {
-                if (isFirstOrder)
-                    orderStr += "ORDER BY ";
-
-                let sv = this.sortValue[sk];
-                if (sv > 0) {
-                    if (!isFirstOrder) orderStr += ", ";
-                    orderStr += "?? ASC ";
-                    queryValues.push(sk);
-                }
-                else if (sv < 0) {
-                    if (!isFirstOrder) orderStr += ", ";
-                    orderStr += "?? DESC ";
-                    queryValues.push(sk);
-                }
-
-                isFirstOrder = false;
+            let sv = this.sortValue[sk];
+            if (sv > 0) {
+                if (!isFirstOrder) orderStr += ", ";
+                orderStr += "?? ASC ";
+                queryValues.push(sk);
+            }
+            else if (sv < 0) {
+                if (!isFirstOrder) orderStr += ", ";
+                orderStr += "?? DESC ";
+                queryValues.push(sk);
             }
 
-            if (this.limitValue !== null)
-                limitStr += "LIMIT " + this.limitValue + " ";
-            if (this.skipValue !== null)
-                limitStr += "OFFSET " + this.skipValue + " ";
+            isFirstOrder = false;
+        }
 
-            thisConnection.connection.query(queryStr + r.s + orderStr + limitStr + ";", queryValues, function (err, rows, fields) {
-                if (err)
-                    reject(err);
-                else
-                    resolve(rows);
+        if (this.limitValue !== null)
+            limitStr += "LIMIT " + this.limitValue + " ";
+        if (this.skipValue !== null)
+            limitStr += "OFFSET " + this.skipValue + " ";
+
+        let queryStr = "SELECT * FROM ?? " + r.s + orderStr + limitStr + ";"
+
+        if (callback !== undefined) {
+            thisConnection.connection.query(queryStr, queryValues, callback);
+        }
+        else {
+            return new Promise((resolve, reject) => {
+                thisConnection.connection.query(queryStr, queryValues, function (err, rows, fields) {
+                    if (err)
+                        reject(err);
+                    else
+                        resolve(rows);
+                });
             });
-        });
+        }
     };
 
     return cur;
@@ -229,94 +259,115 @@ mysql_connection.prototype.find = function(conditions) {
 
 mysql_connection.prototype.findOne = function (conditions, callback) {
 
-    return new Promise((resolve, reject) => {
-        var queryValues = [this.table];
-        var queryStr = "SELECT * FROM ?? ";
-        let r = mysqlStringFromConditions(conditions);
+    let r = mysqlStringFromConditions(conditions);
 
-        this.connection.query(queryStr + r.s + "LIMIT 1;", queryValues.concat(r.v), function (err, rows, fields) {
-            if (err) return reject(err);
-            resolve(rows.length !== 0 ? rows[0] : null);
+    var queryValues = [this.table].concat(r.v);
+    var queryStr = "SELECT * FROM ?? " + r.s + "LIMIT 1;";
+
+    if (callback !== undefined) {
+        this.connection.query(queryStr, queryValues, function (err, rows, fields) {
+            if (err) return callback(err);
+            callback(null, rows.length !== 0 ? rows[0] : null);
         });
-    });
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.query(queryStr, queryValues, function (err, rows, fields) {
+                if (err) return reject(err);
+                resolve(rows.length !== 0 ? rows[0] : null);
+            });
+        });
+    }
 };
 
 mysql_connection.prototype.delete = function (conditions, callback) {
 
-    return new Promise((resolve, reject) => {
-        var queryValues = [this.table];
-        var queryStr = "DELETE FROM ?? ";
-        let r = mysqlStringFromConditions(conditions);
+    let r = mysqlStringFromConditions(conditions);
 
-        this.connection.query(queryStr + r.s + ";", queryValues.concat(r.v), function (err) {
-            if (err) return reject(err);
-            resolve();
+    var queryStr = "DELETE FROM ?? " + r.s + ";";
+    var queryValues = [this.table].concat(r.v);
+
+    if (callback !== undefined) {
+        this.connection.query(queryStr, queryValues, callback);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.query(queryStr, queryValues, function (err) {
+                if (err) return reject(err);
+                resolve();
+            });
         });
-    });
+    }
 };
 
 mysql_connection.prototype.insert = function (rows, callback) {
+    var queryValues = [this.table, rows];
 
-    return new Promise((resolve, reject) => {
+    if (callback !== undefined) {
         if (rows.length === 0) {
-            return callback(null);
+            return callback(-1);
         }
 
-        var queryValues = [this.table];
-        var queryStr = "INSERT INTO ?? (";
-        let firstRow = rows[0];
-        let firstColumn = true;
-        for (let k in firstRow) {
-            if (firstColumn) {
-                firstColumn = false;
-                queryStr += "?? ";
-            }
-            else {
-                queryStr += ", ?? ";
-            }
-            queryValues.push(k);
-        }
-        queryStr += ") VALUES ? ;";
-
-        queryValues.push(rows);
-
-        this.connection.query("INSERT INTO ?? SET ?;", queryValues, function (err, res) {
-            if (err) return reject(err);
-            resolve(res.insertId);
+        this.connection.query('INSERT INTO ?? SET ?', queryValues, function (err, res) {
+            if (err) return callback(err);
+            callback(null, res.insertId);
         });
-    });
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            if (rows.length === 0) {
+                return resolve(-1);
+            }
+            this.connection.query('INSERT INTO ?? SET ?', queryValues, function (err, res) {
+                if (err) return reject(err);
+                resolve(res.insertId);
+            });
+        });
+    }
 };
 
-mysql_connection.prototype.createTable - function(columns){
-    return new Promise((resolve, reject) => {
-        var queryValues = [this.table];
-        var queryStr = "CREATE TABLE ?? (";
-        var firstColumn = true;
-        for (let k in columns) {
-            if (!firstColumn) {
-                queryStr += ", ";
-            }
-            queryStr += k + " " + columns[k];
-            firstColumn = false; 
-        }
-        queryStr += ")'"
+mysql_connection.prototype.createTable - function (columns, callback) {
 
-        this.connection.query(queryStr + r.s + ";", queryValues, function (err) {
-            if (err) return reject(err);
-            resolve();
+    var queryValues = [this.table];
+    var queryStr = "CREATE TABLE ?? (";
+    var firstColumn = true;
+    for (let k in columns) {
+        if (!firstColumn) {
+            queryStr += ", ";
+        }
+        queryStr += k + " " + columns[k];
+        firstColumn = false;
+    }
+    queryStr += ") " + r.s + ";";
+
+    if (callback !== undefined) {
+        this.connection.query(queryStr, queryValues, callback);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.query(queryStr, queryValues, function (err) {
+                if (err) return reject(err);
+                resolve();
+            });
         });
-    });
+    }
 };
 
-mysql_connection.prototype.dropTable - function(name){
-    return new Promise((resolve, reject) => {
-        var queryValues = [this.table];
-        var queryStr = "DROP TABLE ?? ";
-        this.connection.query(queryStr + ";", queryValues, function (err) {
-            if (err) return reject(err);
-            resolve();
+mysql_connection.prototype.dropTable - function (callback){
+    var queryValues = [this.table];
+    var queryStr = "DROP TABLE ??;";
+
+    if (callback !== undefined) {
+        this.connection.query(queryStr, queryValues, callback);
+    }
+    else {
+        return new Promise((resolve, reject) => {
+            this.connection.query(queryStr, queryValues, function (err) {
+                if (err) return reject(err);
+                resolve();
+            });
         });
-    });
+    }
 };
 
 

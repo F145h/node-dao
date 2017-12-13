@@ -1,6 +1,6 @@
 {
   "name": "node-dao",
-  "version": "0.5.1",
+  "version": "0.5.5",
   "description": "node.js mongo-like data access object interface",
   "repository": "F145h/node-dao",
   "license": "MIT",

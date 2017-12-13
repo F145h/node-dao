@@ -114,9 +114,9 @@ async function testConnnections()
    let tableName = "animals";
 
    var c = {};
-   c["mongodb"] = await getMongoDbConnection(tableName);
-   c["mysql"] = await getMysqlConnection(tableName);
-   c["postgresql"] = await getPostgreSqlConnection(tableName);
+   //c["mongodb"] = await getMongoDbConnection(tableName);
+   //c["mysql"] = await getMysqlConnection(tableName);
+   //c["postgresql"] = await getPostgreSqlConnection(tableName);
    c["sqlite"] = await getSqliteConnection(tableName); 
 
    for(let n in c)
