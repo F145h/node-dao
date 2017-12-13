@@ -68,7 +68,7 @@ mongodb_connection.prototype.insertOne = function (fields) {
     return new Promise((resolve, reject) => {
         this.connection.collection(this.table).insertOne(fields, function(err, result) {
             if (err) return reject(err);
-            resolve(result);
+            resolve(result.insertedId.toHexString());
         });
     });
 };

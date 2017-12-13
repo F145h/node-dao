@@ -280,9 +280,9 @@ mysql_connection.prototype.insert = function (rows, callback) {
 
         queryValues.push(rows);
 
-        this.connection.query("INSERT INTO ?? SET ?;", queryValues, function (err) {
+        this.connection.query("INSERT INTO ?? SET ?;", queryValues, function (err, res) {
             if (err) return reject(err);
-            resolve();
+            resolve(res.insertId);
         });
     });
 };

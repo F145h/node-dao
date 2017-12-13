@@ -260,9 +260,14 @@ postgresql_connection.prototype.insert = function (fields, callback) {
             }
             sqlCmd += ")";
         }
-        this.connection.query(sqlCmd + ";", fieldValues, function (err) {
+
+        if ("id" in fields) {
+            sqlCmd += " RETURNING id";
+        }
+
+        this.connection.query(sqlCmd + ";", fieldValues, function (err, res) {
             if (err) return reject(err);
-            resolve();
+            resolve((res.rows.length !== 0 && "id" in res.rows[0]) ? res.rows[0].id : -1);
         });
     });
 };

@@ -19,8 +19,7 @@ async function check(n, c) {
     animals['cow'] = { id: 5, name: "cow"};
 
     for (a in animals) {
-        console.log(n, "insert", animals[a]);
-        await c.insert(animals[a]);
+        console.log(n, "insert", animals[a], await c.insert(animals[a]));
         console.log(n, "findOne", animals[a].name);
         let r = await c.findOne({name: {$eq:animals[a].name}});
         console.log(n, "result:", r);

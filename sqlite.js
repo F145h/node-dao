@@ -292,8 +292,9 @@ sqlite_connection.prototype.insert = function (fields, callback) {
             }
             sqlCmd += ")";
         }
-        var r = this.connection.run(sqlCmd, fieldValues);
-        resolve(r);
+        this.connection.run(sqlCmd, fieldValues);
+        var r = this.connection.exec("select last_insert_rowid();");
+        resolve(r.length !== 0 ? r[0].values[0][0] : -1);
     });
 };
 
