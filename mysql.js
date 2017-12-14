@@ -326,7 +326,7 @@ mysql_connection.prototype.insert = function (rows, callback) {
     }
 };
 
-mysql_connection.prototype.createTable - function (columns, callback) {
+mysql_connection.prototype.createTable = function (columns, callback) {
 
     var queryValues = [this.table];
     var queryStr = "CREATE TABLE ?? (";
@@ -338,7 +338,7 @@ mysql_connection.prototype.createTable - function (columns, callback) {
         queryStr += k + " " + columns[k];
         firstColumn = false;
     }
-    queryStr += ") " + r.s + ";";
+    queryStr += ");";
 
     if (callback !== undefined) {
         this.connection.query(queryStr, queryValues, callback);
@@ -353,7 +353,7 @@ mysql_connection.prototype.createTable - function (columns, callback) {
     }
 };
 
-mysql_connection.prototype.dropTable - function (callback){
+mysql_connection.prototype.dropTable = function (callback){
     var queryValues = [this.table];
     var queryStr = "DROP TABLE ??;";
 

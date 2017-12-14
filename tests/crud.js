@@ -5,62 +5,90 @@ let pg = require("pg");
 let mongodb = require("mongodb");
 let sqlite = require("sql.js");
 
+let Ok = "[OK]";
+let Failed = "[FAILED]";
 
 
-async function check(n, c) {
-    console.log("test", n, "database");
-    await c.delete({});
+function check(n, c, td) {
+    return new Promise(async function(resolve, reject){
+        console.log("--------------------------------------\nDatabase type:", n, "\ttable:", td);
+        await c.createTable(td);
+        console.log(Ok, n, "create table");
+        await c.delete({});
 
-    let animals = {};
-    animals['horse'] = { id: 1, name: "horse"};
-    animals['cat'] = { id: 2, name: "cat"};
-    animals['dog'] = { id: 3, name: "dog"};
-    animals['raven'] = { id: 4, name: "raven"};
-    animals['cow'] = { id: 5, name: "cow"};
+        let animals = {};
+        animals['horse'] = { id: 1, name: "horse"};
+        animals['cat'] = { id: 2, name: "cat"};
+        animals['dog'] = { id: 3, name: "dog"};
+        animals['raven'] = { id: 4, name: "raven"};
+        animals['cow'] = { id: 5, name: "cow"};
 
-    for (a in animals) {
-        console.log(n, "insert", animals[a], await c.insert(animals[a]));
-        console.log(n, "findOne", animals[a].name);
-        let r = await c.findOne({name: {$eq:animals[a].name}});
-        console.log(n, "result:", r);
-    }
+        for (a in animals) {
+            console.log(Ok, n, "inserting row("+a+"), return id:", await c.insert(animals[a]));
+            let r = await c.findOne({name: {$eq:animals[a].name}});
+            console.log((r.name === animals[a].name) ? Ok : Failed, n, "findeOne("+animals[a].name+") call, result.name:", r.name);
+        }
 
-    let ra = await c.find({}).toArray();
-    console.log(ra);
+        let findArrayLength = (await c.find({}).toArray()).length;
+        let findRowCount = await c.find({}).count();
 
-    var rsa = await c.find({}).limit(2).sort({ name: 1 }).toArray();
-    console.log(rsa);
+        console.log((findArrayLength === findRowCount && findRowCount === 5) ? Ok : Failed, n, "compare count() and toArray().length:", findArrayLength, "and", findRowCount);
 
-    var rssa = await c.find({}).skip(2).limit(2).sort({ name: -1 }).toArray();
-    console.log(rssa);
+        let ra = await c.find({}).toArray();
+        console.log((ra[0].name === "horse" && ra[0].id === 1 &&
+                        ra[1].name === "cat" && ra[1].id === 2 &&
+                        ra[2].name === "dog" && ra[2].id === 3 &&
+                        ra[3].name === "raven" && ra[3].id === 4 &&
+                        ra[4].name === "cow" && ra[4].id === 5) ? Ok : Failed, n, "check table elements");
 
-    await c.delete({ name: { $eq: "cow" } });
-    let f1 = await c.find({ name: { $eq: "cow" } }).toArray();
-    let f2 = await c.findOne({ name: { $eq: "cow" } });
-    console.log(n, "find & findOne removed row", f1, f2);
+        var rsa = await c.find({}).limit(2).sort({ name: 1 }).toArray();
+        console.log((rsa[0].name === "cat" && rsa[0].id === 2 &&
+            rsa[1].name === "cow" && rsa[1].id === 5) ? Ok : Failed, n, "check sorted ASC elements");
 
-    console.log(n, "count:", await c.find({}).count());
+        var rssa = await c.find({}).skip(2).limit(2).sort({ name: -1 }).toArray();
+        console.log((rssa[0].name === "dog" && rssa[0].id === 3 &&
+            rssa[1].name === "cow" && rssa[1].id === 5) ? Ok : Failed, n, "check sorted DESC elements");
 
-    console.log(n, "ravens count({name:{$eq: 'raven'}}) :", await c.find({ name: { $eq: "raven" } }).count());
-    console.log(n, "find raven object:", await c.find({ name: { $eq: "raven" } }).toArray());
+        await c.delete({ name: { $eq: "cow" } });
+        let f1 = await c.find({ name: { $eq: "cow" } }).toArray();
+        let f2 = await c.findOne({ name: { $eq: "cow" } });
+        console.log((f1.length === 0 && f2 === null) ? Ok : Failed, n, "find & findOne removed row", f1, f2);
 
-    await c.update({ name: { $eq: "raven"}}, { $set: { name: "falcon" }});
-    console.log(n, "find raven object:", await c.findOne({ name: { $eq: "raven" } }));
-    console.log(n, "find falcon object:", await c.findOne({ name: { $eq: "falcon" } }));
+        let nrc = await c.find({}).count();
+        console.log((nrc === 4) ? Ok : Failed, n, "new rows count:", nrc);
+
+        let rc = await c.find({ name: { $eq: "raven" } }).count();
+        console.log((rc === 1) ? Ok : Failed, n, "ravens count({name:{$eq: 'raven'}}) :", rc);
+        let r1 = (await c.find({ name: { $eq: "raven" } }).toArray())[0];
+        console.log((r1 !== null) ? Ok : Failed, n, "find raven object:");
+        let r2 = await c.findOne({ name: { $eq: "raven" } });
+        console.log((r2 !== null) ? Ok : Failed, n, "findOne raven object");
+        console.log((r1.id === r2.id && r1.name === r2.name) ? Ok : Failed, n, "compare raven objects:");
+        console.log(Ok, n, "update raven to falcon");
+        await c.update({ name: { $eq: "raven"}}, { $set: { name: "falcon" }});
+        let rf1 = await c.findOne({ name: { $eq: "raven" } });
+        let rf2 = await c.findOne({ name: { $eq: "falcon" } });
+        console.log((rf1 === null) ? Ok : Failed, n, "find raven object:", rf1);
+        console.log((rf2 !== null) ? Ok : Failed, n, "find falcon object:", rf2);
+
+        await c.dropTable();
+        console.log(Ok, n, "drop table");
+        resolve();
+    });
 }
 
-function getMongoDbConnection(){
+function getMongoDbConnection(tableName, td){
    return new Promise((resolve, reject) => {
-       var c = mongodb.MongoClient;
-       c.connect("mongodb://localhost:27017/test", function (err, db) {
+        var c = mongodb.MongoClient;
+        c.connect("mongodb://localhost:27017/test", function (err, db) {
             if (err) reject(err);
-            let mongodbDao = new dao.mongodb(db, "animals");
-            resolve(mongodbDao);
+            let mongodbDao = new dao.mongodb(db, tableName);
+            resolve({c:mongodbDao, td:td});
         });
     });
 }
 
-function getMysqlConnection(tableName) {
+function getMysqlConnection(tableName, td) {
     return new Promise((resolve, reject) => {
         let c = mysql.createConnection({
             host: 'localhost',
@@ -72,12 +100,12 @@ function getMysqlConnection(tableName) {
         c.connect((err) => {
             if (err) reject(err);
             let mysqlDao = new dao.mysql(c, tableName);
-            resolve(mysqlDao);
+            resolve({c:mysqlDao, td:td});
         });
     });
 }
 
-function getPostgreSqlConnection(tableName) {
+function getPostgreSqlConnection(tableName, td) {
     return new Promise((resolve, reject) => {
         var config = {
             user: 'test',
@@ -94,18 +122,16 @@ function getPostgreSqlConnection(tableName) {
             if (err) reject(err);
 
             let postgresqlDao = new dao.postgresql(pool, tableName);
-            resolve(postgresqlDao);
+            resolve({c:postgresqlDao, td:td});
         });
     });
 }
 
-function getSqliteConnection(tableName){
+function getSqliteConnection(tableName, td){
     return new Promise((resolve, reject) => {
         var db = new sqlite.Database();
-        db.run("CREATE TABLE animals (id int, name char);");
-
         let sqliteDao = new dao.sqlite(db, tableName);
-        resolve(sqliteDao);
+        resolve({c:sqliteDao, td:td});
     });
 }
 
@@ -113,16 +139,18 @@ async function testConnnections()
 {
    let tableName = "animals";
 
-   var c = {};
-   //c["mongodb"] = await getMongoDbConnection(tableName);
-   //c["mysql"] = await getMysqlConnection(tableName);
-   //c["postgresql"] = await getPostgreSqlConnection(tableName);
-   c["sqlite"] = await getSqliteConnection(tableName); 
+   var ci = {};
+   ci["sqlite"] = await getSqliteConnection(tableName, { id: "INTEGER", name: "char" });
+   ci["mongodb"] = await getMongoDbConnection(tableName);
+   ci["mysql"] = await getMysqlConnection(tableName, { id: "INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY", name: "TEXT"});
+   ci["postgresql"] = await getPostgreSqlConnection(tableName, {id: "INTEGER PRIMARY KEY DEFAULT NEXTVAL('user_ids')", name: "TEXT"});
 
-   for(let n in c)
+   for(let n in ci)
    {
-        check(n, c[n]);
+       await check(n, ci[n].c, ci[n].td);
    }
+
+   process.exit(0);
 }
 
 

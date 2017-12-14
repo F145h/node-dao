@@ -3,6 +3,7 @@ let sql_cursor = require('./cursor.js');
 function sqlite_connection(c, t) {
     this.connection = c;
     this.table = t;
+    this.columns = null;
 }
 
 function sqliteStringFromConditions(conditions) {
@@ -166,6 +167,22 @@ function sqliteStringFromUpdateFields(fields) {
     return { v: queryValues, s: queryStr };
 }
 
+sqlite_connection.prototype.getTableColumns = function()
+{
+    if (this.columns !== null)
+        return this.columns;
+
+    let r = this.connection.exec("PRAGMA table_info("+this.table+");")
+    var columns = [];
+    for (let rowNumber in r[0].values)
+    {
+        let rowInfo = r[0].values[rowNumber];
+        columns.push(rowInfo[1]);
+    }
+    this.columns = columns;
+    return columns;
+}
+
 sqlite_connection.prototype.update = function (conditions, fields, callback) {
 
     let ur = sqliteStringFromUpdateFields(fields);
@@ -226,6 +243,7 @@ sqlite_connection.prototype.find = function (conditions) {
             var r = [];
             stmt.bind(cr.a);
             while (stmt.step()) r.push(stmt.get());
+            stmt.free();
             callback(r.length !== 0 ? r[0][0] : 0);
         }
         else {
@@ -234,6 +252,7 @@ sqlite_connection.prototype.find = function (conditions) {
                 var r = [];
                 stmt.bind(cr.a);
                 while (stmt.step()) r.push(stmt.get());
+                stmt.free();
                 resolve(r.length !== 0 ? r[0][0] : 0);
             });
         }
@@ -244,6 +263,8 @@ sqlite_connection.prototype.find = function (conditions) {
 
         var orderStr = new String();
         var limitStr = new String();
+
+        let columns = thisConnection.getTableColumns();
 
         var isFirstOrder = true;
         for (let sk in this.sortValue) {
@@ -274,7 +295,15 @@ sqlite_connection.prototype.find = function (conditions) {
             var stmt = thisConnection.connection.prepare(sqlCmd + cr.s + orderStr + limitStr + ";");
             var r = [];
             stmt.bind(cr.a);
-            while (stmt.step()) r.push(stmt.get());
+            while (stmt.step()) {
+                rowValues = stmt.get();
+                rowObj = {};
+                for (let ci in columns) {
+                    rowObj[columns[ci]] = rowValues[ci];
+                }
+                r.push(rowObj);
+            }
+            stmt.free();
             callback(null, r);
         }
         else {
@@ -283,7 +312,15 @@ sqlite_connection.prototype.find = function (conditions) {
                 var stmt = thisConnection.connection.prepare(sqlCmd + cr.s + orderStr + limitStr + ";");
                 var r = [];
                 stmt.bind(cr.a);
-                while (stmt.step()) r.push(stmt.get());
+                while (stmt.step()) {
+                    rowValues = stmt.get();
+                    rowObj = {};
+                    for (let ci in columns) { 
+                        rowObj[columns[ci]] = rowValues[ci];
+                    }
+                    r.push(rowObj);
+                }
+                stmt.free();
                 resolve(r);
             });
         }
@@ -302,12 +339,14 @@ sqlite_connection.prototype.findOne = function (conditions, callback) {
     if (callback !== undefined) {
         var stmt = this.connection.prepare(sqlCmd);
         var r = stmt.getAsObject(cr.v);
+        stmt.free();
         callback(null, Object.keys(r).length !== 0 ? r : null);
     }
     else {
         return new Promise((resolve, reject) => {
             var stmt = this.connection.prepare(sqlCmd);
             var r = stmt.getAsObject(cr.v);
+            stmt.free();
             resolve(Object.keys(r).length !== 0 ? r : null);
         });
     }
@@ -351,11 +390,11 @@ sqlite_connection.prototype.insert = function (fields, callback) {
 
 };
 
-sqlite_connection.prototype.createTable - function (columns, callback) {
-
+sqlite_connection.prototype.createTable = function (columns, callback) {
     var queryValues = [];
     var queryStr = "CREATE TABLE " + this.table + " (";
     var firstColumn = true;
+
     for (let k in columns) {
         if (!firstColumn) {
             queryStr += ", ";
@@ -372,18 +411,16 @@ sqlite_connection.prototype.createTable - function (columns, callback) {
     else {
         return new Promise((resolve, reject) => {
             this.connection.run(queryStr, queryValues);
-            resolve(r);
+            resolve();
         });
     }
-
 };
 
-sqlite_connection.prototype.dropTable - function (name, callback) {
+sqlite_connection.prototype.dropTable = function (name, callback) {
     var queryValues = [];
     let queryStr = "DROP TABLE " + this.table + " ;";
     if (callback !== undefined) {
         this.connection.run(queryStr, queryValues);
-        callback(null);
     }
     else {
         return new Promise((resolve, reject) => {

@@ -337,10 +337,10 @@ postgresql_connection.prototype.insert = function (fields, callback) {
     }
 };
 
-postgresql_connection.prototype.createTable - function (columns, callback) {
+postgresql_connection.prototype.createTable = function (columns, callback) {
 
-    var queryValues = [this.table];
-    var queryStr = "CREATE TABLE $1 (";
+    var queryValues = [];
+    var queryStr = "CREATE SEQUENCE " + this.table + "_ids; CREATE TABLE " + this.table + " (";
     var firstColumn = true;
     for (let k in columns) {
         if (!firstColumn) {
@@ -365,10 +365,10 @@ postgresql_connection.prototype.createTable - function (columns, callback) {
     }
 };
 
-postgresql_connection.prototype.dropTable - function (callback) {
+postgresql_connection.prototype.dropTable = function (callback) {
 
-    var queryValues = [this.table];
-    let queryStr = "DROP TABLE $1 ;";
+    var queryValues = [];
+    let queryStr = "DROP SEQUENCE IF EXISTS " + this.table + "_ids; DROP TABLE " + this.table + " ;";
 
     if (callback !== undefined) {
         this.connection.query(queryStr, queryValues, callback);

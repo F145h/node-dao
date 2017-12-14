@@ -120,7 +120,7 @@ mongodb_connection.prototype.insertMany = function (fields, callback) {
     }
 };
 
-mongodb_connection.prototype.createTable - function (callback) {
+mongodb_connection.prototype.createTable = function (callback) {
     if (callback !== undefined) {
         this.connection.createCollection(this.table, callback);
     }
@@ -134,7 +134,7 @@ mongodb_connection.prototype.createTable - function (callback) {
     }
 };
 
-mongodb_connection.prototype.dropTable - function (name, callback) {
+mongodb_connection.prototype.dropTable = function (name, callback) {
     if (callback !== undefined) {
         this.connection.collection(this.table).drop(callback);
     }
