@@ -1,11 +1,17 @@
 {
   "name": "node-dao",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "node.js mongo-like data access object interface",
   "repository": "F145h/node-dao",
   "license": "MIT",
   "author": {
     "name": "Igor F145h Savchenko",
     "url": "http://f145h.com/"
+  },
+  "dependencies": {
+    "mysql": "^2.15.0",
+    "sql.js": "^0.4.0",
+    "ng": "^0.0.0-rc6",
+    "mongodb": "2.2.29"
   }
 }
