@@ -77,13 +77,15 @@ function check(n, c, td) {
     });
 }
 
-function getMongoDbConnection(tableName, td){
-   return new Promise((resolve, reject) => {
-        var c = mongodb.MongoClient;
-        c.connect("mongodb://localhost:27017/test", function (err, db) {
+function getMongoDbConnection(dbName, tableName, td){
+    return new Promise((resolve, reject) => {
+
+        var c = mongodb.MongoClient;       
+        c.connect("mongodb://localhost:27017", function (err, client) {
             if (err) reject(err);
-            let mongodbDao = new dao.mongodb(db, tableName);
-            resolve({c:mongodbDao, td:td});
+            let db = client.db(dbName);
+            let mongoDao = new dao.mongodb(db, tableName)
+            resolve({ c: mongoDao, td:td});
         });
     });
 }
@@ -137,11 +139,12 @@ function getSqliteConnection(tableName, td){
 
 async function testConnnections()
 {
+   let dbName = "test";
    let tableName = "animals";
 
    var ci = {};
    ci["sqlite"] = await getSqliteConnection(tableName, { id: "INTEGER", name: "char" });
-   ci["mongodb"] = await getMongoDbConnection(tableName);
+   ci["mongodb"] = await getMongoDbConnection(dbName, tableName);
    ci["mysql"] = await getMysqlConnection(tableName, { id: "INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY", name: "TEXT"});
    ci["postgresql"] = await getPostgreSqlConnection(tableName, {id: "INTEGER PRIMARY KEY DEFAULT NEXTVAL('user_ids')", name: "TEXT"});
 
