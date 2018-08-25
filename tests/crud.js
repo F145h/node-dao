@@ -17,11 +17,11 @@ function check(n, c, td) {
         await c.delete({});
 
         let animals = {};
-        animals['horse'] = { id: 1, name: "horse"};
-        animals['cat'] = { id: 2, name: "cat"};
-        animals['dog'] = { id: 3, name: "dog"};
-        animals['raven'] = { id: 4, name: "raven"};
-        animals['cow'] = { id: 5, name: "cow"};
+        animals['horse'] = { id: 1, type: "horse", name: "John"};
+        animals['cat'] = { id: 2, type: "cat", name: "Alice"};
+        animals['dog'] = { id: 3, type: "dog", name: "Richard"};
+        animals['raven'] = { id: 4, type: "raven", name: "Darkness"};
+        animals['cow'] = { id: 5, type: "cow", name: "Jessy"};
 
         for (a in animals) {
             console.log(Ok, n, "inserting row("+a+"), return id:", await c.insert(animals[a]));
@@ -35,41 +35,47 @@ function check(n, c, td) {
         console.log((findArrayLength === findRowCount && findRowCount === 5) ? Ok : Failed, n, "compare count() and toArray().length:", findArrayLength, "and", findRowCount);
 
         let ra = await c.find({}).toArray();
-        console.log((ra[0].name === "horse" && ra[0].id === 1 &&
-                        ra[1].name === "cat" && ra[1].id === 2 &&
-                        ra[2].name === "dog" && ra[2].id === 3 &&
-                        ra[3].name === "raven" && ra[3].id === 4 &&
-                        ra[4].name === "cow" && ra[4].id === 5) ? Ok : Failed, n, "check table elements");
+        console.log((ra[0].name === "John" && ra[0].id === 1 &&
+                        ra[1].name === "Alice" && ra[1].id === 2 &&
+                        ra[2].name === "Richard" && ra[2].id === 3 &&
+                        ra[3].name === "Darkness" && ra[3].id === 4 &&
+                        ra[4].name === "Jessy" && ra[4].id === 5) ? Ok : Failed, n, "check table elements");
 
         var rsa = await c.find({}).limit(2).sort({ name: 1 }).toArray();
-        console.log((rsa[0].name === "cat" && rsa[0].id === 2 &&
-            rsa[1].name === "cow" && rsa[1].id === 5) ? Ok : Failed, n, "check sorted ASC elements");
+        console.log((rsa[0].name === "Alice" && rsa[0].id === 2 &&
+            rsa[1].name === "Darkness" && rsa[1].id === 4) ? Ok : Failed, n, "check sorted ASC elements");
 
         var rssa = await c.find({}).skip(2).limit(2).sort({ name: -1 }).toArray();
-        console.log((rssa[0].name === "dog" && rssa[0].id === 3 &&
-            rssa[1].name === "cow" && rssa[1].id === 5) ? Ok : Failed, n, "check sorted DESC elements");
+        console.log((rssa[0].name === "Jessy" && rssa[0].id === 5 &&
+            rssa[1].name === "Darkness" && rssa[1].id === 4) ? Ok : Failed, n, "check sorted DESC elements");
 
-        await c.delete({ name: { $eq: "cow" } });
-        let f1 = await c.find({ name: { $eq: "cow" } }).toArray();
-        let f2 = await c.findOne({ name: { $eq: "cow" } });
+        await c.delete({ type: { $eq: "cow" } });
+        let f1 = await c.find({ type: { $eq: "cow" } }).toArray();
+        let f2 = await c.findOne({ type: { $eq: "cow" } });
         console.log((f1.length === 0 && f2 === null) ? Ok : Failed, n, "find & findOne removed row", f1, f2);
 
         let nrc = await c.find({}).count();
         console.log((nrc === 4) ? Ok : Failed, n, "new rows count:", nrc);
 
-        let rc = await c.find({ name: { $eq: "raven" } }).count();
-        console.log((rc === 1) ? Ok : Failed, n, "ravens count({name:{$eq: 'raven'}}) :", rc);
-        let r1 = (await c.find({ name: { $eq: "raven" } }).toArray())[0];
+        let rc = await c.find({ type: { $eq: "raven" } }).count();
+        console.log((rc === 1) ? Ok : Failed, n, "ravens count({type:{$eq: 'raven'}}) :", rc);
+        let r1 = (await c.find({ type: { $eq: "raven" } }).toArray())[0];
         console.log((r1 !== null) ? Ok : Failed, n, "find raven object:");
-        let r2 = await c.findOne({ name: { $eq: "raven" } });
+        let r2 = await c.findOne({ type: { $eq: "raven" } });
         console.log((r2 !== null) ? Ok : Failed, n, "findOne raven object");
         console.log((r1.id === r2.id && r1.name === r2.name) ? Ok : Failed, n, "compare raven objects:");
-        console.log(Ok, n, "update raven to falcon");
-        await c.update({ name: { $eq: "raven"}}, { $set: { name: "falcon" }});
-        let rf1 = await c.findOne({ name: { $eq: "raven" } });
-        let rf2 = await c.findOne({ name: { $eq: "falcon" } });
-        console.log((rf1 === null) ? Ok : Failed, n, "find raven object:", rf1);
-        console.log((rf2 !== null) ? Ok : Failed, n, "find falcon object:", rf2);
+        console.log(Ok, n, "update raven Darkness to Dark");
+        await c.update({ name: { $eq: "Darkness"}}, { $set: { name: "Dark" }});
+        let rf1 = await c.findOne({ name: { $eq: "Darkness" } });
+        let rf2 = await c.findOne({ name: { $eq: "Dark" } });
+        console.log((rf1 === null) ? Ok : Failed, n, "find Darkness object:", rf1);
+        console.log((rf2 !== null) ? Ok : Failed, n, "find Dark object:", rf2);
+        console.log(Ok, n, "cast raven(Dark) to pidgin(White)");
+        await c.update({ type: { $eq: "raven" }, name: { $eq: "Dark" } }, { $set: { name: "White", type:"pidgin" } });
+        let rf3 = await c.findOne({ name: { $eq: "Dark" } });
+        let rf4 = await c.findOne({ name: { $eq: "White" }, type: { $eq: "pidgin" } });
+        console.log((rf3 === null) ? Ok : Failed, n, "find raven Dark:", rf3);
+        console.log((rf4 !== null) ? Ok : Failed, n, "find pidgin White:", rf4);
 
         await c.dropTable();
         console.log(Ok, n, "drop table");
@@ -143,10 +149,10 @@ async function testConnnections()
    let tableName = "animals";
 
    var ci = {};
-   ci["sqlite"] = await getSqliteConnection(tableName, { id: "INTEGER", name: "char" });
+   ci["sqlite"] = await getSqliteConnection(tableName, { id: "INTEGER", type: "char", name: "char"});
    ci["mongodb"] = await getMongoDbConnection(dbName, tableName);
-   ci["mysql"] = await getMysqlConnection(tableName, { id: "INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY", name: "TEXT"});
-   ci["postgresql"] = await getPostgreSqlConnection(tableName, {id: "INTEGER PRIMARY KEY DEFAULT NEXTVAL('user_ids')", name: "TEXT"});
+   ci["mysql"] = await getMysqlConnection(tableName, { id: "INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY", type: "TEXT", name: "TEXT"});
+   ci["postgresql"] = await getPostgreSqlConnection(tableName, { id: "INTEGER PRIMARY KEY DEFAULT NEXTVAL('" + tableName + "_ids')", type: "TEXT", name: "TEXT"});
 
    for(let n in ci)
    {

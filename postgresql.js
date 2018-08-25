@@ -65,12 +65,10 @@ function postgresqlStringFromUpdateFields(fields, valueNumber) {
         queryStr += "SET ";
         for (let colName in fields) {
             if (afterFirstField)
-                queryStr += "AND ";
+                queryStr += ", ";
 
-            queryStr += "?? = ? ";
-
-            queryValues.push(colName);
-            queryValues.push(conditionValue);
+            queryStr += colName + " = $" + ++valueNumber + " ";
+            queryValues.push(fields[colName]);
 
             afterFirstField = true;
         }
@@ -84,30 +82,36 @@ function postgresqlStringFromUpdateFields(fields, valueNumber) {
                     let setFields = fields[colName];
                     for (let vName in setFields) {
                         if (afterFirstField)
-                            queryStr += "AND ";
+                            queryStr += ", ";
 
                         queryStr += " " + vName + " = $" + ++valueNumber + " ";
                         queryValues.push(setFields[vName]);
+
+                        afterFirstField = true;
                     }
                     break;
                 case "$inc":
                     let incFields = fields[colName];
                     for (let vName in incFields) {
                         if (afterFirstField)
-                            queryStr += "AND ";
+                            queryStr += ", ";
 
                         queryStr += " " + vName + " = " + vName + " + $" + ++valueNumber + " ";
                         queryValues.push(incFields[vName]);
+
+                        afterFirstField = true;
                     }
                     break;
                 case "$dec":
                     let decFields = fields[colName];
                     for (let vName in decFields) {
                         if (afterFirstField)
-                            queryStr += "AND ";
+                            queryStr += ", ";
 
                         queryStr += " " + vName + " = " + vName + " + $" + ++valueNumber + " ";
                         queryValues.push(decFields[vName]);
+
+                        afterFirstField = true;
                     }
                     break;
                 default:
@@ -315,9 +319,7 @@ postgresql_connection.prototype.insert = function (fields, callback) {
         sqlCmd += ")";
     }
 
-    if ("id" in fields) {
-        sqlCmd += " RETURNING id";
-    }
+    sqlCmd += " RETURNING id";
 
     sqlCmd += ";";
 
@@ -340,7 +342,7 @@ postgresql_connection.prototype.insert = function (fields, callback) {
 postgresql_connection.prototype.createTable = function (columns, callback) {
 
     var queryValues = [];
-    var queryStr = "CREATE SEQUENCE " + this.table + "_ids; CREATE TABLE " + this.table + " (";
+    var queryStr = "DROP SEQUENCE IF EXISTS " + this.table + "_ids CASCADE; CREATE SEQUENCE " + this.table + "_ids; CREATE TABLE " + this.table + " (";
     var firstColumn = true;
     for (let k in columns) {
         if (!firstColumn) {
@@ -368,7 +370,7 @@ postgresql_connection.prototype.createTable = function (columns, callback) {
 postgresql_connection.prototype.dropTable = function (callback) {
 
     var queryValues = [];
-    let queryStr = "DROP SEQUENCE IF EXISTS " + this.table + "_ids; DROP TABLE " + this.table + " ;";
+    let queryStr = "DROP SEQUENCE IF EXISTS " + this.table + "_ids CASCADE; DROP TABLE " + this.table + " ;";
 
     if (callback !== undefined) {
         this.connection.query(queryStr, queryValues, callback);

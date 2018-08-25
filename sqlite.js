@@ -114,7 +114,7 @@ function sqliteStringFromUpdateFields(fields) {
         queryStr += "SET ";
         for (let colName in fields) {
             if (afterFirstField)
-                queryStr += "AND ";
+                queryStr += ", ";
 
             queryStr += colName + " = ? ";
 
@@ -132,30 +132,36 @@ function sqliteStringFromUpdateFields(fields) {
                     let setFields = fields[colName];
                     for (let vName in setFields) {
                         if (afterFirstField)
-                            queryStr += "AND ";
+                            queryStr += ", ";
 
                         queryStr += " " + vName + " = ? ";
                         queryValues.push(setFields[vName]);
+
+                        afterFirstField = true;
                     }
                     break;
                 case "$inc":
                     let incFields = fields[colName];
                     for (let vName in incFields) {
                         if (afterFirstField)
-                            queryStr += "AND ";
+                            queryStr += ", ";
 
                         queryStr += " " + vName + " = " + vName + " + ? ";
                         queryValues.push(incFields[vName]);
+
+                        afterFirstField = true;
                     }
                     break;
                 case "$dec":
                     let decFields = fields[colName];
                     for (let vName in decFields) {
                         if (afterFirstField)
-                            queryStr += "AND ";
+                            queryStr += ", ";
 
                         queryStr += " " + vName + " = " + vName + " + ? ";
                         queryValues.push(decFields[vName]);
+
+                        afterFirstField = true;
                     }
                     break;
                 default:
