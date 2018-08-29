@@ -307,29 +307,82 @@ mysql_connection.prototype.delete = function (conditions, callback) {
 };
 
 mysql_connection.prototype.insert = function (rows, callback) {
-    var queryValues = [this.table, rows];
 
-    if (callback !== undefined) {
-        if (rows.length === 0) {
-            return callback(-1);
+    let table = this.table;
+    let connection = this.connection;
+
+    function insertRow(rows, callback) {
+        var queryValues = [table, rows];
+
+        if (callback !== undefined) {
+            if (rows.length === 0) {
+                return callback(-1);
+            }
+
+            connection.query('INSERT INTO ?? SET ?', queryValues, function (err, res) {
+                if (err) return callback(err);
+                callback(null, res.insertId);
+            });
+        }
+    }
+
+    function sendRows(rows, callback) {
+        let nRows = rows.length;
+        var ids = [];
+        var currentRow = 0;
+
+        function sendNextRow(rowNumber, callback) {
+            insertRow(rows[rowNumber], (err, res) => {
+                if (err)
+                    return callback(err);
+
+                ++rowNumber;
+                ids.push(res);
+                if (nRows !== rowNumber)
+                    return sendNextRow(rowNumber, callback);
+                else
+                    callback(null, ids);
+            });
         }
 
-        this.connection.query('INSERT INTO ?? SET ?', queryValues, function (err, res) {
-            if (err) return callback(err);
-            callback(null, res.insertId);
-        });
+        sendNextRow(0, callback);
+    };
+
+    if (callback !== undefined) {
+        if (Array.isArray(rows)) {
+            if (rows.length === 0) {
+                return callback(-1);
+            }
+
+            sendRows(rows, function (err, res) {
+                if (err) return callback(err);
+                callback(null, res);
+            });
+        }
+        else
+            return insertRow(rows, callback);
     }
     else {
         return new Promise((resolve, reject) => {
-            if (rows.length === 0) {
-                return resolve(-1);
+            if (Array.isArray(rows)) {
+                if (rows.length === 0) {
+                    return resolve(-1);
+                }
+
+                sendRows(rows, function (err, res) {
+                    if (err) return reject(err);
+                    resolve(res);
+                });
             }
-            this.connection.query('INSERT INTO ?? SET ?', queryValues, function (err, res) {
-                if (err) return reject(err);
-                resolve(res.insertId);
-            });
+            else {
+                insertRow(rows, function (err, res) {
+                    if (err) return reject(err);
+                    resolve(res.insertId);
+                });
+            }
         });
     }
+
 };
 
 mysql_connection.prototype.createTable = function (columns, callback) {

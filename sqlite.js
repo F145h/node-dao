@@ -358,39 +358,96 @@ sqlite_connection.prototype.findOne = function (conditions, callback) {
     }
 };
 
-sqlite_connection.prototype.insert = function (fields, callback) {
+sqlite_connection.prototype.insert = function (rows, callback) {
 
-    var fieldValues = [];
-    var sqlCmd = 'INSERT INTO ' + this.table + ' ';
-    if (fields !== null) {
-        var fieldsProcessed = 0;
-        sqlCmd += "(";
-        for (var f in fields) {
-            ++fieldsProcessed;
-            sqlCmd += f;
-            sqlCmd += Object.keys(fields).length !== fieldsProcessed ? ", " : " ";
-            fieldValues[":" + f] = fields[f];
-        }
-        sqlCmd += ") VALUES (";
+    let table = this.table;
+    let connection = this.connection;
 
-        for (var f in fields) {
-            sqlCmd += "?";
-            fieldValues.push(fields[f]);
-            sqlCmd += fieldValues.length !== fieldsProcessed ? ", " : " ";
+    function insertRow(fields, callback) {
+        var fieldValues = [];
+        var sqlCmd = 'INSERT INTO ' + table + ' ';
+        if (fields !== null) {
+            var fieldsProcessed = 0;
+            sqlCmd += "(";
+            for (var f in fields) {
+                ++fieldsProcessed;
+                sqlCmd += f;
+                sqlCmd += Object.keys(fields).length !== fieldsProcessed ? ", " : " ";
+                fieldValues[":" + f] = fields[f];
+            }
+            sqlCmd += ") VALUES (";
+
+            for (var f in fields) {
+                sqlCmd += "?";
+                fieldValues.push(fields[f]);
+                sqlCmd += fieldValues.length !== fieldsProcessed ? ", " : " ";
+            }
+            sqlCmd += ")";
+
+            connection.run(sqlCmd, fieldValues);
+            var r = connection.exec("select last_insert_rowid();");
+            callback(null, r.length !== 0 ? r[0].values[0][0] : -1);
         }
-        sqlCmd += ")";
+        else
+            callback(null, -1);
     }
 
+
+
+function sendRows(rows, callback) {
+        let nRows = rows.length;
+        var ids = [];
+        var currentRow = 0;
+
+        function sendNextRow(rowNumber, callback) {
+            insertRow(rows[rowNumber], (err, res) => {
+                if (err)
+                    return callback(err);
+
+                ++rowNumber;
+                ids.push(res);
+                if (nRows !== rowNumber)
+                    return sendNextRow(rowNumber, callback);
+                else
+                    callback(null, ids);
+            });
+        }
+
+        sendNextRow(0, callback);
+    };
+
     if (callback !== undefined) {
-        this.connection.run(sqlCmd, fieldValues);
-        var r = this.connection.exec("select last_insert_rowid();");
-        callback(null, r.length !== 0 ? r[0].values[0][0] : -1);
+        if (Array.isArray(rows)) {
+            if (rows.length === 0) {
+                return callback(-1);
+            }
+
+            sendRows(rows, function (err, res) {
+                if (err) return callback(err);
+                callback(null, res);
+            });
+        }
+        else
+            return insertRow(rows, callback);
     }
     else {
         return new Promise((resolve, reject) => {
-            this.connection.run(sqlCmd, fieldValues);
-            var r = this.connection.exec("select last_insert_rowid();");
-            resolve(r.length !== 0 ? r[0].values[0][0] : -1);
+            if (Array.isArray(rows)) {
+                if (rows.length === 0) {
+                    return resolve(-1);
+                }
+
+                sendRows(rows, function (err, res) {
+                    if (err) return reject(err);
+                    resolve(res);
+                });
+            }
+            else {
+                insertRow(rows, function (err, res) {
+                    if (err) return reject(err);
+                    resolve(res.insertId);
+                });
+            }
         });
     }
 

@@ -12,6 +12,11 @@ let Failed = "[FAILED]";
 function check(n, c, td) {
     return new Promise(async function(resolve, reject){
         console.log("--------------------------------------\nDatabase type:", n, "\ttable:", td);
+        try {
+            await c.dropTable();
+        }
+        catch (e) { }
+        
         await c.createTable(td);
         console.log(Ok, n, "create table");
         await c.delete({});
@@ -27,6 +32,15 @@ function check(n, c, td) {
             console.log(Ok, n, "inserting row("+a+"), return id:", await c.insert(animals[a]));
             let r = await c.findOne({name: {$eq:animals[a].name}});
             console.log((r.name === animals[a].name) ? Ok : Failed, n, "findeOne("+animals[a].name+") call, result.name:", r.name);
+        }
+
+        await c.delete({});
+
+        let allRows = await c.insert([animals['horse'], animals['cat'], animals['dog'], animals['raven'], animals['cow']]);
+        console.log(Ok, "inserting all rows, return ids:", allRows);
+        for (a in animals) {
+            let r = await c.findOne({ name: { $eq: animals[a].name } });
+            console.log((r.name === animals[a].name) ? Ok : Failed, n, "findeOne(" + animals[a].name + ") call, result.name:", r.name);
         }
 
         let findArrayLength = (await c.find({}).toArray()).length;
@@ -149,10 +163,10 @@ async function testConnnections()
    let tableName = "animals";
 
    var ci = {};
-   ci["sqlite"] = await getSqliteConnection(tableName, { id: "INTEGER", type: "char", name: "char"});
+   ci["postgresql"] = await getPostgreSqlConnection(tableName, { id: "INTEGER PRIMARY KEY DEFAULT NEXTVAL('" + tableName + "_ids')", type: "TEXT", name: "TEXT" });
+   ci["mysql"] = await getMysqlConnection(tableName, { id: "INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY", type: "TEXT", name: "TEXT" });
+   ci["sqlite"] = await getSqliteConnection(tableName, { id: "INTEGER", type: "char", name: "char" });
    ci["mongodb"] = await getMongoDbConnection(dbName, tableName);
-   ci["mysql"] = await getMysqlConnection(tableName, { id: "INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY", type: "TEXT", name: "TEXT"});
-   ci["postgresql"] = await getPostgreSqlConnection(tableName, { id: "INTEGER PRIMARY KEY DEFAULT NEXTVAL('" + tableName + "_ids')", type: "TEXT", name: "TEXT"});
 
    for(let n in ci)
    {

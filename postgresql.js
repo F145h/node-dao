@@ -68,6 +68,7 @@ function postgresqlStringFromUpdateFields(fields, valueNumber) {
                 queryStr += ", ";
 
             queryStr += colName + " = $" + ++valueNumber + " ";
+
             queryValues.push(fields[colName]);
 
             afterFirstField = true;
@@ -298,42 +299,82 @@ postgresql_connection.prototype.findOne = function (conditions, callback) {
 
 postgresql_connection.prototype.insert = function (fields, callback) {
 
+    var nParam = 0;
     var fieldValues = [];
-    var sqlCmd = 'INSERT INTO ' + this.table + ' ';
-    if (fields !== null) {
-        var fieldsProcessed = 0;
-        sqlCmd += "(";
-        for (var f in fields) {
-            ++fieldsProcessed;
-            sqlCmd += f;
-            sqlCmd += Object.keys(fields).length !== fieldsProcessed ? ", " : " ";
-        }
-        sqlCmd += ") VALUES (";
+    var sqlCmd = "";
 
-        var nParam = 0;
-        for (var f in fields) {
+    sqlCmd += 'INSERT INTO ' + this.table + ' ';
+    let ftd = Array.isArray(fields) ? fields[0] : fields;
+
+    var fieldsProcessed = 0;
+    sqlCmd += "(";
+    for (var f in ftd) {
+        ++fieldsProcessed;
+        sqlCmd += f;
+        sqlCmd += Object.keys(ftd).length !== fieldsProcessed ? ", " : " ";
+    }
+    sqlCmd += ") VALUES ";
+
+    let genInsert = (flds) => {
+
+        sqlCmd += "(";
+        for (var f in flds) {
             sqlCmd += "$" + ++nParam + " ";
-            fieldValues.push(fields[f]);
-            sqlCmd += fieldValues.length !== fieldsProcessed ? ", " : " ";
+            fieldValues.push(flds[f]);
+            sqlCmd += fieldValues.length % fieldsProcessed !== 0 ? ", " : " ";
         }
         sqlCmd += ")";
     }
 
+    if (Array.isArray(fields)) {
+        for (let i in fields) {
+            if (i !== "0")
+                sqlCmd += ", ";
+            genInsert(fields[i]);
+        }
+    }
+    else
+        genInsert(fields);
+
     sqlCmd += " RETURNING id";
 
-    sqlCmd += ";";
+    sqlCmd += ";";  
 
     if (callback !== undefined) {
         this.connection.query(sqlCmd, fieldValues, function (err, res) {
             if (err) return callback(err);
-            callback(null, (res.rows.length !== 0 && "id" in res.rows[0]) ? res.rows[0].id : -1);
+
+            if ("id" in res.rows[0]) {
+                if (res.rows.length === 1) {
+                    callback(null, res.rows[0].id);
+                }
+                else {
+                    var ids = [];
+                    for (var o in res.rows) {
+                        ids.push(res.rows[o].id);
+                    }
+                    callback(null, (ids));
+                }
+            }
+            callback(null, (res.rows.length === 1 && "id" in res.rows[0]) ? res.rows[0].id : res.rows);
         });
     }
     else {
         return new Promise((resolve, reject) => {
             this.connection.query(sqlCmd, fieldValues, function (err, res) {
                 if (err) return reject(err);
-                resolve((res.rows.length !== 0 && "id" in res.rows[0]) ? res.rows[0].id : -1);
+                if ("id" in res.rows[0]) {
+                    if (res.rows.length === 1) {
+                        resolve(res.rows[0].id);
+                    }
+                    else {
+                        var ids = [];
+                        for (var o in res.rows) {
+                            ids.push(res.rows[o].id);
+                        }
+                        resolve(ids);
+                    } 
+                }
             });
         });
     }

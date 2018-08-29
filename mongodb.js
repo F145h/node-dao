@@ -82,7 +82,29 @@ mongodb_connection.prototype.findOne = function (condition, callback) {
 
 mongodb_connection.prototype.insert = function (objects, callback) {
     if (Array.isArray(objects)) {
-        return this.insertMany(objects, callback);
+        if (callback !== undefined) {
+            return this.insertMany(objects, function (err, res) {
+                if (err)
+                    return callback(err);
+                var ids = [];
+                for (var o in res.ops) {
+                    ids.push(res.ops[o].id);
+                }
+                return callback(null, ids);
+            });
+        }
+        else {
+            return new Promise((resolve, reject) => {
+                return this.insertMany(objects, function (err, res) {
+                    if (err) return reject(err);
+                    var ids = [];
+                    for (var o in res.ops) {
+                        ids.push(res.ops[o].id);
+                    }
+                    return resolve(ids);
+                });
+            });
+        }
     }
     else {
         return this.insertOne(objects, callback);
