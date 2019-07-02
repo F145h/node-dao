@@ -109,7 +109,7 @@ function postgresqlStringFromUpdateFields(fields, valueNumber) {
                         if (afterFirstField)
                             queryStr += ", ";
 
-                        queryStr += " " + vName + " = " + vName + " + $" + ++valueNumber + " ";
+                        queryStr += " " + vName + " = " + vName + " - $" + ++valueNumber + " ";
                         queryValues.push(decFields[vName]);
 
                         afterFirstField = true;
@@ -356,7 +356,6 @@ postgresql_connection.prototype.insert = function (fields, callback) {
                     callback(null, (ids));
                 }
             }
-            callback(null, (res.rows.length === 1 && "id" in res.rows[0]) ? res.rows[0].id : res.rows);
         });
     }
     else {

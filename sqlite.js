@@ -158,7 +158,7 @@ function sqliteStringFromUpdateFields(fields) {
                         if (afterFirstField)
                             queryStr += ", ";
 
-                        queryStr += " " + vName + " = " + vName + " + ? ";
+                        queryStr += " " + vName + " = " + vName + " - ? ";
                         queryValues.push(decFields[vName]);
 
                         afterFirstField = true;
